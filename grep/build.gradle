@@ -1,0 +1,127 @@
+
+plugins {
+    id "us.kirchmeier.capsule" version "1.0.1"
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: 'application'
+
+mainClassName='org.factcenter.grep.SecGrep'
+
+ext { isSnapshot = false }
+
+ext {
+        groupId = 'org.factcenter.inchworm'
+}
+
+description = "Secure Grep (regular expression search)"
+
+version = "0.8.0"
+
+dependencies {
+	compile "org.factcenter.inchworm:inchworm:0.8.+"
+    compile "org.factcenter.qilin:qilin:1.2.+"
+
+	// Logging
+	compile 'org.slf4j:slf4j-api:1.7.7'
+	runtime 'ch.qos.logback:logback-classic:1.1.2'
+	runtime 'ch.qos.logback:logback-core:1.1.2'
+
+	// Command-line option parser
+	compile 'net.sf.jopt-simple:jopt-simple:4.6'
+
+	// Regular expression parser
+	compile 'dk.brics.automaton:automaton:1.11-8'
+
+	testCompile "org.factcenter.inchworm:inchworm:0.8.+:tests"
+	testCompile 'junit:junit:4.+'
+
+	runtime 'org.codehaus.groovy:groovy:2.4.+'
+}
+
+
+/*==== You probably don't have to edit below this line =======*/
+
+version += "${isSnapshot ? '-SNAPSHOT' : ''}"
+
+
+task visualize(dependsOn: classes, type:JavaExec) {
+    description = 'Outputs a graphviz DFA corresponding to a regex. Use -Pregex=... to set regex, -Poutfile=... to set ouput file'
+
+    if (project.hasProperty('regex')) {
+        args = [regex]
+        if (project.hasProperty('outfile'))
+            args += [outfile]
+    }
+
+    classpath = sourceSets.main.runtimeClasspath
+
+    main = 'SimpleDFA'
+}
+
+
+
+/*===================================
+ *        "Fat" Build targets
+ *===================================*/
+
+
+task mavenCapsule(type: MavenCapsule){
+    description = "Generate a capsule jar that automatically downloads and caches dependencies when run."
+    applicationClass mainClassName
+    destinationDir = buildDir
+}
+
+task fatCapsule(type: FatCapsule){
+    description = "Generate a single capsule jar containing everything. Use -Pfatmain=... to override main class"
+
+    destinationDir = buildDir
+
+    def fatMain = hasProperty('fatmain') ? fatmain : mainClassName
+
+    applicationClass fatMain
+
+    def testJar = hasProperty('test')
+
+    if (hasProperty('fatmain')) {
+        appendix = "fat-${fatMain}"
+    } else {
+        appendix = "fat"
+    }
+
+    if (testJar) {
+        from sourceSets.test.output
+    }
+}
+
+/*===================================
+ *        Repositories
+ *===================================*/
+
+repositories {
+        mavenLocal()
+
+        // Use 'maven central' for other dependencies.
+        mavenCentral()
+
+
+        // Sonatype repository (for snapshots and not-yet-synced versions)
+        maven {
+            url 'https://oss.sonatype.org/content/groups/public'
+        }
+}
+
+task "info" << {
+        println "Project: ${project.name}"
+println "Description: ${project.description}"
+        println "--------------------------"
+        println "GroupId: $groupId"
+        println "Version: $version (${isSnapshot ? 'snapshot' : 'release'})"
+        println ""
+}
+info.description 'Print some information about project parameters'
+
+
+
